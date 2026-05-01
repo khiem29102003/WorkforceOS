@@ -1,0 +1,12 @@
+{
+  "extends": "@ewos/config/typescript/base",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": "dist",
+    "rootDir": ".",
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "scripts/**/*.ts", "prisma.config.ts"],
+  "exclude": ["**/*.test.ts", "**/*.spec.ts"]
+}

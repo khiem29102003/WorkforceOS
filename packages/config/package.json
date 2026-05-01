@@ -1,0 +1,13 @@
+{
+  "name": "@ewos/config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./eslint/base": "./eslint/base.mjs",
+    "./typescript/base": "./typescript/base.json",
+    "./typescript/nest": "./typescript/nest.json",
+    "./typescript/next": "./typescript/next.json"
+  }
+}
+

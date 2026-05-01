@@ -1,0 +1,33 @@
+{
+  "name": "enterprise-workforce-os",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.12.1",
+  "engines": {
+    "node": ">=22.14.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev": "corepack pnpm db:generate && corepack pnpm --filter @ewos/shared build && corepack pnpm --filter @ewos/ui build && corepack pnpm --parallel --filter @ewos/api --filter @ewos/web dev",
+    "build": "corepack pnpm -r --if-present build",
+    "start": "corepack pnpm --parallel --filter @ewos/api --filter @ewos/web start",
+    "lint": "corepack pnpm -r --if-present lint",
+    "test": "corepack pnpm -r --if-present test",
+    "test:e2e": "corepack pnpm --filter @ewos/web test:e2e",
+    "db:generate": "corepack pnpm --filter @ewos/database db:generate",
+    "db:push": "corepack pnpm --filter @ewos/database db:push",
+    "db:migrate": "corepack pnpm --filter @ewos/database db:migrate",
+    "db:seed": "corepack pnpm --filter @ewos/database db:seed",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@ewos/config": "workspace:*",
+    "@typescript-eslint/eslint-plugin": "^8.36.0",
+    "@typescript-eslint/parser": "^8.36.0",
+    "eslint": "^9.30.1",
+    "prettier": "^3.6.2",
+    "turbo": "^2.5.4",
+    "typescript": "^6.0.0",
+    "vitest": "^3.2.4"
+  }
+}

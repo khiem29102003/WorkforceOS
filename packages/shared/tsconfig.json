@@ -1,0 +1,13 @@
+{
+  "extends": "@ewos/config/typescript/base",
+  "compilerOptions": {
+    "declaration": true,
+    "emitDeclarationOnly": false,
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.spec.ts"]
+}

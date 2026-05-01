@@ -1,0 +1,10 @@
+{
+  "extends": "@ewos/config/typescript/nest",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "outDir": "dist",
+    "rootDir": "src",
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts"]
+}

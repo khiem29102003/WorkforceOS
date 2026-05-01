@@ -1,0 +1,14 @@
+{
+  "extends": "@ewos/config/typescript/base",
+  "compilerOptions": {
+    "declaration": true,
+    "emitDeclarationOnly": false,
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/*.spec.ts", "src/**/*.spec.tsx"]
+}

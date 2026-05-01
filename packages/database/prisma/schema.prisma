@@ -1,0 +1,372 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RoleCode {
+  ADMIN
+  HR
+  PM
+  EMPLOYEE
+}
+
+enum EmploymentStatus {
+  ACTIVE
+  PROBATION
+  TERMINATED
+}
+
+enum ProjectStatus {
+  PLANNED
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum ApprovalStepType {
+  MANAGER
+  HR
+}
+
+enum ApprovalDecision {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum OutboxStatus {
+  PENDING
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
+enum AiInsightType {
+  TEAM_RESTRUCTURE
+  BURNOUT_RISK
+  PROJECT_PROGRESS
+}
+
+model Tenant {
+  id           String        @id @default(uuid()) @db.Uuid
+  name         String
+  slug         String        @unique
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+  users        User[]
+  roles        Role[]
+  employees    Employee[]
+  projects     Project[]
+  leaveRequests LeaveRequest[]
+  auditLogs    AuditLog[]
+  featureFlags FeatureFlag[]
+  aiInsights   AiInsight[]
+}
+
+model User {
+  id             String      @id @default(uuid()) @db.Uuid
+  tenantId       String      @db.Uuid
+  email          String
+  name           String
+  passwordHash   String
+  emailVerified  DateTime?
+  image          String?
+  lastLoginAt    DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  deletedAt      DateTime?
+  version        Int         @default(1)
+
+  tenant         Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  roles          UserRole[]
+  employee       Employee?
+  sessions       UserSession[]
+  auditLogs      AuditLog[]  @relation("AuditActor")
+  createdEmployees Employee[] @relation("EmployeeCreatedBy")
+  updatedEmployees Employee[] @relation("EmployeeUpdatedBy")
+
+  @@unique([tenantId, email])
+  @@index([tenantId, deletedAt])
+}
+
+model UserSession {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @db.Uuid
+  userId       String   @db.Uuid
+  sessionToken String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
+  @@index([expiresAt])
+}
+
+model Role {
+  id          String           @id @default(uuid()) @db.Uuid
+  tenantId    String           @db.Uuid
+  code        RoleCode
+  name        String
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  deletedAt   DateTime?
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@unique([tenantId, code])
+}
+
+model Permission {
+  id          String           @id @default(uuid()) @db.Uuid
+  key         String           @unique
+  description String?
+  roles       RolePermission[]
+}
+
+model UserRole {
+  userId    String   @db.Uuid
+  roleId    String   @db.Uuid
+  tenantId  String   @db.Uuid
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([tenantId])
+}
+
+model RolePermission {
+  roleId       String     @db.Uuid
+  permissionId String     @db.Uuid
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model Employee {
+  id                 String           @id @default(uuid()) @db.Uuid
+  tenantId           String           @db.Uuid
+  userId             String           @unique @db.Uuid
+  managerId          String?          @db.Uuid
+  employeeNumber     String
+  title              String
+  department         String
+  employmentStatus   EmploymentStatus @default(PROBATION)
+  startDate          DateTime
+  probationEndsAt    DateTime?
+  weeklyCapacityHours Int             @default(40)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  deletedAt          DateTime?
+  version            Int              @default(1)
+  createdById        String?          @db.Uuid
+  updatedById        String?          @db.Uuid
+
+  tenant             Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user               User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  manager            Employee?        @relation("EmployeeManager", fields: [managerId], references: [id])
+  directReports      Employee[]       @relation("EmployeeManager")
+  createdBy          User?            @relation("EmployeeCreatedBy", fields: [createdById], references: [id])
+  updatedBy          User?            @relation("EmployeeUpdatedBy", fields: [updatedById], references: [id])
+  salaryHistory      SalaryHistory[]
+  projectAssignments ProjectAssignment[]
+  leaveRequests      LeaveRequest[]
+  approvals          LeaveApprovalStep[] @relation("LeaveApprover")
+  timeEntries        TimeEntry[]
+
+  @@unique([tenantId, employeeNumber])
+  @@index([tenantId, department, deletedAt])
+  @@index([managerId])
+}
+
+model SalaryHistory {
+  id                String   @id @default(uuid()) @db.Uuid
+  tenantId          String   @db.Uuid
+  employeeId        String   @db.Uuid
+  annualSalaryCents BigInt
+  currency          String   @default("USD")
+  effectiveFrom     DateTime
+  effectiveTo       DateTime?
+  reason            String
+  approvedById      String?  @db.Uuid
+  createdAt         DateTime @default(now())
+  deletedAt         DateTime?
+  version           Int      @default(1)
+
+  employee          Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, employeeId, effectiveFrom])
+  @@index([effectiveTo])
+}
+
+model Project {
+  id             String              @id @default(uuid()) @db.Uuid
+  tenantId       String              @db.Uuid
+  key            String
+  name           String
+  status         ProjectStatus       @default(PLANNED)
+  healthScore    Int                 @default(80)
+  startsAt       DateTime?
+  endsAt         DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  deletedAt      DateTime?
+  version        Int                 @default(1)
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  assignments    ProjectAssignment[]
+  aiInsights     AiInsight[]
+
+  @@unique([tenantId, key])
+  @@index([tenantId, status, deletedAt])
+}
+
+model ProjectAssignment {
+  tenantId          String   @db.Uuid
+  projectId         String   @db.Uuid
+  employeeId        String   @db.Uuid
+  allocationPercent Int
+  startsAt          DateTime
+  endsAt            DateTime?
+  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  employee          Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, employeeId, startsAt])
+  @@index([tenantId, employeeId])
+}
+
+model TimeEntry {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @db.Uuid
+  employeeId  String   @db.Uuid
+  weekStart   DateTime
+  hours       Decimal  @db.Decimal(5, 2)
+  source      String
+  createdAt   DateTime @default(now())
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, employeeId, weekStart])
+}
+
+model LeaveRequest {
+  id           String              @id @default(uuid()) @db.Uuid
+  tenantId     String              @db.Uuid
+  employeeId   String              @db.Uuid
+  status       LeaveStatus         @default(PENDING)
+  reason       String
+  startsAt     DateTime
+  endsAt       DateTime
+  submittedAt  DateTime            @default(now())
+  decidedAt    DateTime?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  deletedAt    DateTime?
+  version      Int                 @default(1)
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employee     Employee            @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  approvalSteps LeaveApprovalStep[]
+
+  @@index([tenantId, employeeId, status])
+}
+
+model LeaveApprovalStep {
+  id             String           @id @default(uuid()) @db.Uuid
+  tenantId       String           @db.Uuid
+  leaveRequestId String           @db.Uuid
+  approverId     String           @db.Uuid
+  stepType       ApprovalStepType
+  decision       ApprovalDecision @default(PENDING)
+  comment        String?
+  decidedAt      DateTime?
+  createdAt      DateTime         @default(now())
+  version        Int              @default(1)
+  leaveRequest   LeaveRequest     @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
+  approver       Employee         @relation("LeaveApprover", fields: [approverId], references: [id], onDelete: Restrict)
+
+  @@unique([leaveRequestId, stepType])
+  @@index([tenantId, approverId, decision])
+}
+
+model AuditLog {
+  id             String   @id @default(uuid()) @db.Uuid
+  tenantId       String   @db.Uuid
+  actorUserId    String?  @db.Uuid
+  entityType     String
+  entityId       String
+  action         String
+  beforeSnapshot Json?
+  afterSnapshot  Json?
+  ipAddress      String?
+  userAgent      String?
+  traceId        String
+  createdAt      DateTime @default(now())
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  actor          User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, entityType, entityId, createdAt])
+  @@index([traceId])
+}
+
+model OutboxEvent {
+  id             String       @id @default(uuid()) @db.Uuid
+  tenantId       String       @db.Uuid
+  eventType      String
+  aggregateType  String
+  aggregateId    String
+  idempotencyKey String       @unique
+  payload        Json
+  status         OutboxStatus @default(PENDING)
+  attempts       Int          @default(0)
+  lastError      String?
+  availableAt    DateTime     @default(now())
+  processedAt    DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([status, availableAt])
+  @@index([tenantId, aggregateType, aggregateId])
+}
+
+model FeatureFlag {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @db.Uuid
+  key         String
+  enabled     Boolean  @default(false)
+  rules       Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, key])
+}
+
+model AiInsight {
+  id             String        @id @default(uuid()) @db.Uuid
+  tenantId       String        @db.Uuid
+  projectId      String?       @db.Uuid
+  type           AiInsightType
+  inputHash      String
+  model          String
+  structuredInput Json
+  result         Json
+  expiresAt      DateTime
+  createdById    String?       @db.Uuid
+  createdAt      DateTime      @default(now())
+  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  project        Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, type, inputHash])
+  @@index([expiresAt])
+}
